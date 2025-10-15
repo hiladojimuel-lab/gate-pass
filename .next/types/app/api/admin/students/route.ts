@@ -1,4 +1,4 @@
-// File: C:\Users\MIS\Documents\PDF\student gate pass\app\api\admin\students\route.ts
+// File: C:\Users\MIS\Documents\gate_pass_student\app\api\admin\students\route.ts
 import * as entry from '../../../../../../app/api/admin/students/route.js'
 import type { NextRequest } from 'next/server.js'
 

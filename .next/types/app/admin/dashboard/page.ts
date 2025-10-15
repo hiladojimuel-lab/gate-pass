@@ -1,4 +1,4 @@
-// File: C:\Users\MIS\Documents\PDF\student gate pass\app\admin\dashboard\page.tsx
+// File: C:\Users\MIS\Documents\gate_pass_student\app\admin\dashboard\page.tsx
 import * as entry from '../../../../../app/admin/dashboard/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
