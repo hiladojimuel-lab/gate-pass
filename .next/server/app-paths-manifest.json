@@ -1,15 +1,4 @@
 {
-  "/api/realtime/events/route": "app/api/realtime/events/route.js",
-  "/page": "app/page.js",
   "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/admin/dashboard/page": "app/admin/dashboard/page.js",
-  "/api/admin/stats/route": "app/api/admin/stats/route.js",
-  "/api/admin/logs/route": "app/api/admin/logs/route.js",
-  "/api/admin/students/route": "app/api/admin/students/route.js",
-  "/api/admin/students/[id]/route": "app/api/admin/students/[id]/route.js",
-  "/api/auth/logout/route": "app/api/auth/logout/route.js",
-  "/guard/dashboard/page": "app/guard/dashboard/page.js",
-  "/guard/scanner/page": "app/guard/scanner/page.js",
-  "/api/guard/lookup-student/route": "app/api/guard/lookup-student/route.js",
-  "/api/guard/verify/route": "app/api/guard/verify/route.js"
+  "/page": "app/page.js"
 }
