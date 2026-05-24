@@ -67,6 +67,7 @@ This will populate the database with:
 - `access_type` - 'entry' or 'exit' (VARCHAR)
 - `access_status` - 'granted' or 'denied' (VARCHAR)
 - `timestamp` - Access timestamp (TIMESTAMP)
+- `late_minutes` - Minutes late for entry scans (INTEGER, 0 for on-time or exits)
 - `notes` - Additional notes (TEXT)
 
 ### Admins Table

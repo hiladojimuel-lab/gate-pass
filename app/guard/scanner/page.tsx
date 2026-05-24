@@ -1,9 +1,24 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Html5QrcodeScanner } from 'html5-qrcode';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Html5Qrcode } from 'html5-qrcode';
 import { CheckCircle, XCircle, Camera, CameraOff, LogOut, User, ArrowRight, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+
+async function getPreferredCamera(): Promise<string | MediaTrackConstraints> {
+  try {
+    const cameras = await Html5Qrcode.getCameras();
+    if (cameras.length > 0) {
+      const backCamera = cameras.find((c) =>
+        /back|rear|environment/i.test(c.label)
+      );
+      return backCamera?.id ?? cameras[cameras.length - 1].id;
+    }
+  } catch {
+    // fall through to facingMode constraint
+  }
+  return { facingMode: 'environment' };
+}
 
 interface ScanResult {
   studentId: string;
@@ -17,7 +32,6 @@ interface ScanResult {
 }
 
 export default function GuardScanner() {
-  const [scanner, setScanner] = useState<Html5QrcodeScanner | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -26,76 +40,84 @@ export default function GuardScanner() {
   const [manualInput, setManualInput] = useState('');
   const [showManualInput, setShowManualInput] = useState(false);
   const [selectedAccessType, setSelectedAccessType] = useState<'entry' | 'exit' | 'auto'>('auto');
-  const scannerRef = useRef<HTMLDivElement>(null);
+  const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
+  const scanLockRef = useRef(false);
   const router = useRouter();
 
-  useEffect(() => {
-    // Check camera permission on component mount
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(() => {
-        setCameraPermission(true);
-      })
-      .catch(() => {
-        setCameraPermission(false);
-      });
-
-    return () => {
-      if (scanner) {
-        scanner.clear();
+  const stopScanner = useCallback(async () => {
+    const html5QrCode = html5QrCodeRef.current;
+    if (!html5QrCode) {
+      setIsScanning(false);
+      return;
+    }
+    try {
+      if (html5QrCode.isScanning) {
+        await html5QrCode.stop();
       }
+      html5QrCode.clear();
+    } catch (err) {
+      console.error('Scanner stop error:', err);
+    }
+    html5QrCodeRef.current = null;
+    setIsScanning(false);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      void stopScanner();
     };
-  }, [scanner]);
+  }, [stopScanner]);
 
   const startScanner = async () => {
-    if (scannerRef.current) {
-      // Clear any existing scanner first
-      if (scanner) {
-        scanner.clear();
-      }
+    if (isScanning) return;
 
-      try {
-        const html5QrcodeScanner = new Html5QrcodeScanner(
-          "qr-reader",
-          {
-            fps: 10,
-            qrbox: { width: 280, height: 280 },
-            aspectRatio: 1.0,
-            showTorchButtonIfSupported: true,
-            showZoomSliderIfSupported: true,
-            defaultZoomValueIfSupported: 2,
-            useBarCodeDetectorIfSupported: true
-          },
-          false
-        );
+    try {
+      setError('');
+      const html5QrCode = new Html5Qrcode('qr-reader');
+      html5QrCodeRef.current = html5QrCode;
 
-        html5QrcodeScanner.render(
-          (decodedText) => {
-            handleScan(decodedText);
-          },
-          (error) => {
-            // Silent error handling for continuous scanning
-            // Only log actual errors, not common scanning errors
-            if (error && !error.includes('NotFoundException') && !error.includes('No MultiFormat Readers')) {
-              console.debug('QR Scanner:', error);
-            }
+      const camera = await getPreferredCamera();
+
+      await html5QrCode.start(
+        camera,
+        {
+          fps: 10,
+          qrbox: { width: 280, height: 280 },
+          aspectRatio: 1.0,
+          disableFlip: false,
+        },
+        (decodedText) => {
+          if (scanLockRef.current) return;
+          scanLockRef.current = true;
+          void handleScan(decodedText).finally(() => {
+            scanLockRef.current = false;
+          });
+        },
+        (scanError) => {
+          const message =
+            typeof scanError === 'string'
+              ? scanError
+              : scanError instanceof Error
+                ? scanError.message
+                : String(scanError);
+
+          if (
+            message &&
+            !message.includes('NotFoundException') &&
+            !message.includes('No MultiFormat Readers')
+          ) {
+            console.debug('QR Scanner:', scanError);
           }
-        );
+        }
+      );
 
-        setScanner(html5QrcodeScanner);
-        setIsScanning(true);
-        setError('');
-      } catch (error) {
-        setError('Failed to start camera. Please check camera permissions.');
-        console.error('Scanner start error:', error);
-      }
-    }
-  };
-
-  const stopScanner = () => {
-    if (scanner) {
-      scanner.clear();
-      setScanner(null);
-      setIsScanning(false);
+      setIsScanning(true);
+      setCameraPermission(true);
+    } catch (err) {
+      setError('Failed to start camera. Please check camera permissions.');
+      setCameraPermission(false);
+      console.error('Scanner start error:', err);
+      await stopScanner();
     }
   };
 
@@ -139,8 +161,8 @@ export default function GuardScanner() {
         studentData = lookupData.student;
       }
 
-      // Use selected access type or auto-detect
-      const accessType = selectedAccessType === 'auto' ? 'entry' : selectedAccessType;
+      // Use selected access type or auto-detect (let the backend handle 'auto' logic)
+      const accessType = selectedAccessType;
 
       const response = await fetch('/api/guard/verify', {
         method: 'POST',
@@ -167,8 +189,7 @@ export default function GuardScanner() {
           message: data.message
         });
 
-        // Stop scanner after successful scan
-        stopScanner();
+        await stopScanner();
       } else {
         setError(data.error || 'Verification failed');
         setScanResult({
@@ -180,7 +201,7 @@ export default function GuardScanner() {
           timestamp: new Date().toLocaleString(),
           message: data.error || 'Verification failed'
         });
-        stopScanner();
+        await stopScanner();
       }
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Invalid input');
@@ -193,7 +214,27 @@ export default function GuardScanner() {
         timestamp: new Date().toLocaleString(),
         message: error instanceof Error ? error.message : 'Invalid input'
       });
-      stopScanner();
+      await stopScanner();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle QR code from uploaded or dropped image
+  const handleImageFile = async (file: File) => {
+    if (!file) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const html5QrCode = new Html5Qrcode('qr-reader-image');
+      const decodedText = await html5QrCode.scanFile(file, true);
+      await handleScan(decodedText);
+      await html5QrCode.clear();
+    } catch (err) {
+      console.error('Image scan error:', err);
+      setError('Could not read QR code from the image. Please try a clearer image or a different file.');
     } finally {
       setLoading(false);
     }
@@ -337,9 +378,8 @@ export default function GuardScanner() {
               )}
 
               <div
-                ref={scannerRef}
                 id="qr-reader"
-                className="w-full max-w-md mx-auto"
+                className="w-full max-w-md mx-auto min-h-[280px] overflow-hidden rounded-xl bg-black/50 [&_video]:w-full [&_video]:rounded-xl [&_video]:object-cover"
               />
 
               {error && (
@@ -390,6 +430,42 @@ export default function GuardScanner() {
                     </p>
                   </form>
                 )}
+
+                {/* Image Upload / Drag & Drop */}
+                <div className="mt-4">
+                  <p className="text-xs text-white/60 mb-2">
+                    Or upload / drop a QR code image file:
+                  </p>
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file && file.type.startsWith('image/')) {
+                        handleImageFile(file);
+                      }
+                    }}
+                    className="border border-dashed border-white/30 rounded-lg p-3 text-xs text-white/70 bg-white/5 hover:bg-white/10 transition-colors duration-300 cursor-pointer"
+                  >
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      id="qr-image-input"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file && file.type.startsWith('image/')) {
+                          handleImageFile(file);
+                        }
+                      }}
+                    />
+                    <label htmlFor="qr-image-input" className="block cursor-pointer">
+                      Click to select an image, or drag & drop a QR code image here.
+                    </label>
+                  </div>
+                  {/* Hidden container used internally by Html5Qrcode for image scanning */}
+                  <div id="qr-reader-image" className="hidden" />
+                </div>
               </div>
             </div>
           </div>

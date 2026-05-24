@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
         gl.access_type,
         gl.access_status,
         gl.timestamp,
-        gl.notes
+        gl.notes,
+        gl.late_minutes
       FROM gate_logs gl
       LEFT JOIN students s ON gl.student_id = s.student_id
     `;

@@ -166,13 +166,26 @@ export async function POST(request: NextRequest) {
     }
     // If accessType is explicitly 'entry' or 'exit', use that regardless of recent logs
 
+    // Calculate late minutes for entry scans based on a fixed schedule time (e.g., 8:00 AM)
+    let lateMinutes = 0;
+    const now = new Date();
+    if (finalAccessType === 'entry') {
+      const scheduled = new Date(now);
+      // Set scheduled time to 8:00 AM of the current day
+      scheduled.setHours(8, 0, 0, 0);
+
+      if (now > scheduled) {
+        lateMinutes = Math.floor((now.getTime() - scheduled.getTime()) / 60000);
+      }
+    }
+
     // Log successful access
     const logResult = await query(
-      `INSERT INTO gate_logs (student_id, access_type, access_status, notes)
-       VALUES ($1, $2, $3, $4) RETURNING id, timestamp`,
-      [studentId, finalAccessType, 'granted', 'Access granted']
+      `INSERT INTO gate_logs (student_id, access_type, access_status, notes, late_minutes)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, timestamp, late_minutes`,
+      [studentId, finalAccessType, 'granted', 'Access granted', lateMinutes]
     );
-    
+
     const newLog = logResult.rows[0];
 
     // Broadcast real-time update
@@ -184,7 +197,8 @@ export async function POST(request: NextRequest) {
       access_type: finalAccessType,
       access_status: 'granted',
       timestamp: newLog.timestamp,
-      notes: 'Access granted'
+      notes: 'Access granted',
+      late_minutes: newLog.late_minutes ?? 0
     });
 
     // Broadcast stats update to admin dashboard
@@ -193,11 +207,22 @@ export async function POST(request: NextRequest) {
       action: 'increment'
     }, 'admin');
 
+    // Build a user-friendly message, including lateness information if applicable
+    let message = `Access granted for ${finalAccessType}`;
+    if (finalAccessType === 'entry') {
+      if (lateMinutes > 0) {
+        message += ` • Late by ${lateMinutes} minute${lateMinutes === 1 ? '' : 's'}`;
+      } else {
+        message += ' • On time';
+      }
+    }
+
     return NextResponse.json({
       success: true,
       status: 'granted',
       accessType: finalAccessType,
-      message: `Access granted for ${finalAccessType}`,
+      message,
+      lateMinutes,
       student: {
         student_id: studentData.studentId,
         name: studentData.name,

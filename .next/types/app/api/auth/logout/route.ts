@@ -1,8 +1,8 @@
-// File: C:\Users\Admin\Documents\gate_pass_student\app\api\auth\login\route.ts
-import * as entry from '../../../../../../app/api/auth/login/route.js'
+// File: C:\Users\Admin\Documents\gate_pass_student\app\api\auth\logout\route.ts
+import * as entry from '../../../../../../app/api/auth/logout/route.js'
 import type { NextRequest } from 'next/server.js'
 
-type TEntry = typeof import('../../../../../../app/api/auth/login/route.js')
+type TEntry = typeof import('../../../../../../app/api/auth/logout/route.js')
 
 // Check that the entry is a valid entry
 checkFields<Diff<{

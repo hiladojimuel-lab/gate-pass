@@ -49,6 +49,8 @@ interface Student {
   is_active: boolean;
   profile_picture?: string;
   created_at: string;
+  today_first_entry?: string | null;
+  today_last_exit?: string | null;
 }
 
 interface GateLog {
@@ -60,6 +62,7 @@ interface GateLog {
   access_status: 'granted' | 'denied';
   timestamp: string;
   notes: string;
+  late_minutes?: number;
 }
 
 const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b'];
@@ -387,6 +390,7 @@ export default function AdminDashboard() {
                 <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Access Type</th>
                 <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Status</th>
                 <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Timestamp</th>
+                <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Late (min)</th>
                 <th style="border: 1px solid #ddd; padding: 12px; text-align: left;">Notes</th>
               </tr>
             </thead>
@@ -399,6 +403,7 @@ export default function AdminDashboard() {
                   <td style="border: 1px solid #ddd; padding: 8px; text-transform: capitalize;">${log.access_type}</td>
                   <td style="border: 1px solid #ddd; padding: 8px; text-transform: capitalize;">${log.access_status}</td>
                   <td style="border: 1px solid #ddd; padding: 8px;">${new Date(log.timestamp).toLocaleString()}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${log.late_minutes ?? 0}</td>
                   <td style="border: 1px solid #ddd; padding: 8px;">${log.notes}</td>
                 </tr>
               `).join('')}
@@ -460,6 +465,7 @@ export default function AdminDashboard() {
         'Access Type': log.access_type.charAt(0).toUpperCase() + log.access_type.slice(1),
         'Status': log.access_status.charAt(0).toUpperCase() + log.access_status.slice(1),
         'Timestamp': new Date(log.timestamp).toLocaleString(),
+        'Late (min)': log.late_minutes ?? 0,
         'Notes': log.notes
       }));
       
@@ -475,6 +481,7 @@ export default function AdminDashboard() {
         { wch: 12 }, // Access Type
         { wch: 10 }, // Status
         { wch: 20 }, // Timestamp
+        { wch: 10 }, // Late (min)
         { wch: 30 }  // Notes
       ];
       ws['!cols'] = colWidths;
@@ -1045,6 +1052,12 @@ export default function AdminDashboard() {
                         Contact
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                        Today Time In
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                        Today Time Out
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
@@ -1081,6 +1094,16 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                           {student.contact}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                          {student.today_first_entry
+                            ? new Date(student.today_first_entry).toLocaleTimeString()
+                            : '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
+                          {student.today_last_exit
+                            ? new Date(student.today_last_exit).toLocaleTimeString()
+                            : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full transition-all duration-300 ${
@@ -1315,6 +1338,9 @@ export default function AdminDashboard() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
                         Timestamp
                       </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                    Late (min)
+                  </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
                         Notes
                       </th>
@@ -1348,6 +1374,9 @@ export default function AdminDashboard() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-white">
                           {new Date(log.timestamp).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-white text-right">
+                          {log.access_type === 'entry' ? (log.late_minutes ?? 0) : '-'}
                         </td>
                         <td className="px-6 py-4 text-sm text-white">
                           {log.notes}

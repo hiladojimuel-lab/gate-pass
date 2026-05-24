@@ -28,6 +28,8 @@ interface StudentData {
   contact: string;
   qr_code: string;
   profile_picture?: string;
+  today_first_entry?: string | null;
+  today_last_exit?: string | null;
 }
 
 export default function StudentDashboard() {
@@ -360,6 +362,31 @@ export default function StudentDashboard() {
                   <div>
                     <p className="text-sm text-white/70">Contact</p>
                     <p className="font-medium text-white">{student.contact}</p>
+                  </div>
+                </div>
+
+                {/* Today's Time In/Out */}
+                <div className="flex items-center space-x-3 animate-slide-in-left" style={{animationDelay: '0.8s'}}>
+                  <Clock className="w-5 h-5 text-white/60 float-icon" />
+                  <div>
+                    <p className="text-sm text-white/70">Today Time In</p>
+                    <p className="font-medium text-white">
+                      {student.today_first_entry
+                        ? new Date(student.today_first_entry).toLocaleTimeString()
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 animate-slide-in-left" style={{animationDelay: '0.9s'}}>
+                  <Clock className="w-5 h-5 text-white/60 float-icon" />
+                  <div>
+                    <p className="text-sm text-white/70">Today Time Out</p>
+                    <p className="font-medium text-white">
+                      {student.today_last_exit
+                        ? new Date(student.today_last_exit).toLocaleTimeString()
+                        : '-'}
+                    </p>
                   </div>
                 </div>
               </div>
